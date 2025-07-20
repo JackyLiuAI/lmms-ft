@@ -10,7 +10,7 @@ from supported_models import MODEL_HF_PATH, MODEL_FAMILIES
 
 def merge_lora(args):
     model_hf_path = MODEL_HF_PATH[args.model_id]
-    model_local_path = model_local_path if args.model_local_path else model_hf_path
+    model_local_path = args.model_local_path if args.model_local_path else model_hf_path
     model_family_id = MODEL_FAMILIES[args.model_id]
     model_save_path = args.model_save_path if args.model_save_path else args.model_path
     

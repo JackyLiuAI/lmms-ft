@@ -1,4 +1,4 @@
-NUM_GPUS=1
+NUM_GPUS=8
 DISTRIBUTED_ARGS="
     --nnodes=1 \
     --nproc_per_node ${NUM_GPUS} \
@@ -21,18 +21,18 @@ TRAIN_VISION_PROJECTOR=False                            # whether train the visi
 
 USE_LORA=True                                           # whether use lora for llm
 Q_LORA=False                                            # whether use q-lora for llm; only effective when `USE_LORA` is True
-LORA_R=8                                                # the lora rank (both llm and vision encoder)
-LORA_ALPHA=8                                            # the lora alpha (both llm and vision encoder)
+LORA_R=4                                                # the lora rank (both llm and vision encoder)
+LORA_ALPHA=4                                            # the lora alpha (both llm and vision encoder)
 
 RUN_ID=${MODEL_ID}_lora-${USE_LORA}_qlora-${Q_LORA}     # a custom run id that determines the checkpoint folder and wandb run name
 
 DS_STAGE=zero3                                          # deepspeed stage; < zero2 | zero3 >
-PER_DEVICE_BATCH_SIZE=2                                 # batch size per GPU
+PER_DEVICE_BATCH_SIZE=1                                 # batch size per GPU
 GRAD_ACCUM=1                                            # gradient accumulation steps
 NUM_EPOCHS=5                                            # number of training epochs
 
 LR=2e-5                                                 # learning rate
-MODEL_MAX_LEN=512                                       # maximum input length of the model
+MODEL_MAX_LEN=1024                                      # maximum input length of the model
 
 
 torchrun $DISTRIBUTED_ARGS train.py \
@@ -43,7 +43,7 @@ torchrun $DISTRIBUTED_ARGS train.py \
     --video_folder $VIDEO_FOLDER \
     --num_frames $NUM_FRAMES \
     --output_dir ./checkpoints/$RUN_ID \
-    --report_to wandb \
+    --report_to none \
     --run_name $RUN_ID \
     --deepspeed ./ds_configs/${DS_STAGE}.json \
     --bf16 True \

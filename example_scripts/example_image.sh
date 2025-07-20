@@ -1,4 +1,4 @@
-NUM_GPUS=1
+NUM_GPUS=8
 DISTRIBUTED_ARGS="
     --nnodes=1 \
     --nproc_per_node ${NUM_GPUS} \
@@ -8,12 +8,12 @@ DISTRIBUTED_ARGS="
 
 # arguments that are very likely to be changed
 # according to your own case
-MODEL_ID=llava-1.5-7b                                   # model id; pick on by running `python supported_models.py`
+MODEL_ID=qwen2-vl-2b-instruct                                # model id; pick on by running `python supported_models.py`
 TRAIN_DATA_PATH=./example_data/celeba_image_train.json  # path to the training data json file
 EVAL_DATA_PATH=./example_data/celeba_image_eval.json    # path to the evaluation data json file (optional)
 IMAGE_FOLDER=./example_data/images                      # path to the image root folder; if provided, the image paths in the json should be relative
 VIDEO_FOLDER=./example_data/videos                      # path to the video root folder; if provided, the video paths in the json should be relative
-NUM_FRAMES=8                                            # how many frames are sampled from each video
+NUM_FRAMES=1                                            # how many frames are sampled from each video
 
 TRAIN_VISION_ENCODER=False                              # whether train the vision encoder
 USE_VISION_LORA=False                                   # whether use lora for vision encoder (only effective when `TRAIN_VISION_ENCODER` is True)
@@ -21,18 +21,18 @@ TRAIN_VISION_PROJECTOR=False                            # whether train the visi
 
 USE_LORA=True                                           # whether use lora for llm
 Q_LORA=False                                            # whether use q-lora for llm; only effective when `USE_LORA` is True
-LORA_R=8                                                # the lora rank (both llm and vision encoder)
-LORA_ALPHA=8                                            # the lora alpha (both llm and vision encoder)
+LORA_R=2                                                # the lora rank (both llm and vision encoder)
+LORA_ALPHA=2                                            # the lora alpha (both llm and vision encoder)
 
 RUN_ID=${MODEL_ID}_lora-${USE_LORA}_qlora-${Q_LORA}     # a custom run id that determines the checkpoint folder and wandb run name
 
 DS_STAGE=zero3                                          # deepspeed stage; < zero2 | zero3 >
-PER_DEVICE_BATCH_SIZE=2                                 # batch size per GPU
+PER_DEVICE_BATCH_SIZE=1                                 # batch size per GPU
 GRAD_ACCUM=1                                            # gradient accumulation steps
 NUM_EPOCHS=5                                            # number of training epochs
 
 LR=2e-5                                                 # learning rate
-MODEL_MAX_LEN=1024                                       # maximum input length of the model
+MODEL_MAX_LEN=256                                       # maximum input length of the model
 
 
 torchrun $DISTRIBUTED_ARGS train.py \
@@ -43,7 +43,7 @@ torchrun $DISTRIBUTED_ARGS train.py \
     --video_folder $VIDEO_FOLDER \
     --num_frames $NUM_FRAMES \
     --output_dir ./checkpoints/$RUN_ID \
-    --report_to wandb \
+    --report_to none \
     --run_name $RUN_ID \
     --deepspeed ./ds_configs/${DS_STAGE}.json \
     --bf16 True \
