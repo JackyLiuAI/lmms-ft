@@ -160,7 +160,9 @@ def train():
         num_frames=data_args.num_frames,
         model_family_id=model_args.model_family_id,
         user_key=data_args.user_key,
-        assistant_key=data_args.assistant_key
+        assistant_key=data_args.assistant_key,
+        image_max_size=getattr(data_args, "image_max_size", None),
+        image_min_size=getattr(data_args, "image_min_size", None),
     )
     if data_args.eval_data_path:
         eval_dataset = LazySupervisedDataset(
@@ -170,7 +172,9 @@ def train():
             num_frames=data_args.num_frames,
             model_family_id=model_args.model_family_id,
             user_key=data_args.user_key,
-            assistant_key=data_args.assistant_key
+            assistant_key=data_args.assistant_key,
+            image_max_size=getattr(data_args, "image_max_size", None),
+            image_min_size=getattr(data_args, "image_min_size", None),
         )
     else:
         eval_dataset = None

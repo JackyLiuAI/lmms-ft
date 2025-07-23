@@ -34,6 +34,8 @@ class DataArguments:
     num_frames: Optional[int] = field(default=8)
     user_key: Optional[str] = field(default="human")
     assistant_key: Optional[str] = field(default="gpt")
+    image_max_size: Optional[int] = field(default=None, metadata={"help": "Maximum image size for resizing."})
+    image_min_size: Optional[int] = field(default=None, metadata={"help": "Minimum image size for resizing."})
 
 
 @dataclass

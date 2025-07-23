@@ -56,6 +56,8 @@ class LazySupervisedDataset(Dataset):
         num_frames: int = 8,
         user_key: str = "human",
         assistant_key: str = "gpt",
+        image_max_size: Optional[int] = None,
+        image_min_size: Optional[int] = None,
     ) -> None:
         super(LazySupervisedDataset, self).__init__()
         self.list_data_dict = json.load(open(data_path, "r"))
@@ -65,6 +67,8 @@ class LazySupervisedDataset(Dataset):
         self.load_image = TO_LOAD_IMAGE[model_family_id]
         self.user_key = user_key
         self.assistant_key = assistant_key
+        self.image_max_size = image_max_size
+        self.image_min_size = image_min_size
 
         self.is_text_only = [
             "image" not in source and "video" not in source
@@ -74,30 +78,59 @@ class LazySupervisedDataset(Dataset):
     def __len__(self) -> int:
         return len(self.list_data_dict)
 
-    def __getitem__(self, i) -> Dict[str, List]:      
+    def __getitem__(self, i) -> Dict[str, List]:
         source = self.list_data_dict[i]
 
         images = []
         if "image" in source:
-            # here we do not do any image preprocessing but rather
-            # let the processor handle everything
-            # in some cases this may cause slight differences
-            # but should totally be fine (e.g., official llava-1.5 does padding,
-            # but llava-1.5-hf (huggingface's implementation) does not)
             if isinstance(source["image"], list):
                 image_sources = source["image"]
             elif isinstance(source["image"], str):
                 image_sources = [source["image"]]
             else:
                 raise ValueError(f"Invalid image source type: {type(source['image'])}")
-            
+
             for image_path in image_sources:
                 if self.image_folder is not None:
                     image_path = os.path.join(self.image_folder, image_path)
-                images.append(
-                    Image.open(image_path).convert("RGB")
-                    if self.load_image else image_path
-                )
+                img = Image.open(image_path).convert("RGB") if self.load_image else image_path
+
+                # 自动调整图片尺寸
+                if self.load_image and isinstance(img, Image.Image):
+                    width, height = img.size
+                    max_size = self.image_max_size
+                    min_size = self.image_min_size
+                    resize_needed = False
+
+                    # 第一步：等比例缩放，保证最长边不大于max_size
+                    if max_size is not None:
+                        if width > max_size or height > max_size:
+                            # 计算缩放比例
+                            ratio = min(max_size / width, max_size / height)
+                            new_width = int(width * ratio)
+                            new_height = int(height * ratio)
+                            img = img.resize((new_width, new_height), Image.LANCZOS)
+                            width, height = new_width, new_height
+                            resize_needed = True
+                    
+                    # 第二步：确保所有边都不小于min_size
+                    if min_size is not None:
+                        new_width, new_height = width, height
+                        
+                        # 检查是否有边小于最小尺寸
+                        if width < min_size:
+                            new_width = min_size
+                            resize_needed = True
+                        
+                        if height < min_size:
+                            new_height = min_size
+                            resize_needed = True
+                        
+                        # 如果需要调整大小
+                        if new_width != width or new_height != height:
+                            img = img.resize((new_width, new_height), Image.LANCZOS)
+
+                images.append(img)
 
         videos = []
         if "video" in source:

@@ -36,7 +36,7 @@ def merge_lora(args):
     
     if args.load_model:
         print("Loading LoRA weights...")
-        model = PeftModel.from_pretrained(model, args.model_path)
+        model = PeftModel.from_pretrained(model, args.model_path, use_cache=False)
         print("Merging LoRA weights...")
         model = model.merge_and_unload()
         print("Model is loaded...")

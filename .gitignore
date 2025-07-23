@@ -23,3 +23,5 @@ not_useful_for_now
 example_data/videos/ego4d/*.mp4
 
 *.log
+
+/SD_datasets
