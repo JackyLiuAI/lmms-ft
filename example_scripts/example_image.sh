@@ -1,4 +1,4 @@
-NUM_GPUS=8
+NUM_GPUS=4
 DISTRIBUTED_ARGS="
     --nnodes=1 \
     --nproc_per_node ${NUM_GPUS} \

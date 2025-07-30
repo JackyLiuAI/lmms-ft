@@ -1,4 +1,4 @@
-NUM_GPUS=8
+NUM_GPUS=4
 DISTRIBUTED_ARGS="
     --nnodes=1 \
     --nproc_per_node ${NUM_GPUS} \
@@ -6,8 +6,8 @@ DISTRIBUTED_ARGS="
     --rdzv_endpoint localhost:0
 "
 
-IMAGE_MAX_SIZE=96   # 最大图片边长
-IMAGE_MIN_SIZE=48   # 最小图片边长
+IMAGE_MAX_SIZE=512   # 最大图片边长
+IMAGE_MIN_SIZE=96   # 最小图片边长
 
 # arguments that are very likely to be changed
 # according to your own case
@@ -24,8 +24,8 @@ TRAIN_VISION_PROJECTOR=False                            # whether train the visi
 
 USE_LORA=True                                           # whether use lora for llm
 Q_LORA=False                                            # whether use q-lora for llm; only effective when `USE_LORA` is True
-LORA_R=1                                                # the lora rank (both llm and vision encoder)
-LORA_ALPHA=1                                            # the lora alpha (both llm and vision encoder)
+LORA_R=4                                                # the lora rank (both llm and vision encoder)
+LORA_ALPHA=4                                            # the lora alpha (both llm and vision encoder)
 
 RUN_ID=${MODEL_ID}_lora-${USE_LORA}_qlora-${Q_LORA}     # a custom run id that determines the checkpoint folder and wandb run name
 
@@ -35,7 +35,7 @@ GRAD_ACCUM=1                                            # gradient accumulation 
 NUM_EPOCHS=5                                            # number of training epochs
 
 LR=2e-5                                                 # learning rate
-MODEL_MAX_LEN=512                                      # maximum input length of the model
+MODEL_MAX_LEN=2048                                      # maximum input length of the model
 
 
 torchrun $DISTRIBUTED_ARGS train.py \
