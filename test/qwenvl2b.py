@@ -1,12 +1,12 @@
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
 
 from transformers import Qwen2VLForConditionalGeneration, AutoTokenizer, AutoProcessor
 from qwen_vl_utils import process_vision_info
 
 # default: Load the model on the available device(s)
 model = Qwen2VLForConditionalGeneration.from_pretrained(
-    "/home/STU/ljq/Projects/Tuning/lmms-finetune/checkpoints/qwen2-vl-2b-instruct_lora-True_qlora-False", torch_dtype="auto", device_map="auto"
+    "/data/ljq/lmms-finetune/checkpoints/qwen2-vl-2b-instruct_lora-True_qlora-False", torch_dtype="auto", device_map="auto"
 )
 
 # We recommend enabling flash_attention_2 for better acceleration and memory saving, especially in multi-image and video scenarios.

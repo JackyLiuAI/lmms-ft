@@ -27,7 +27,7 @@ Q_LORA=False                                            # whether use q-lora for
 LORA_R=1                                                # the lora rank (both llm and vision encoder)
 LORA_ALPHA=1                                            # the lora alpha (both llm and vision encoder)
 
-RUN_ID=${MODEL_ID}_lora-${USE_LORA}_qlora-${Q_LORA}     # a custom run id that determines the checkpoint folder and wandb run name
+RUN_ID=cri_${MODEL_ID}_lora-${USE_LORA}_qlora-${Q_LORA}     # a custom run id that determines the checkpoint folder and wandb run name
 
 DS_STAGE=zero3                                          # deepspeed stage; < zero2 | zero3 >
 PER_DEVICE_BATCH_SIZE=1                                 # batch size per GPU
