@@ -5,17 +5,17 @@ DISTRIBUTED_ARGS="
     --rdzv_backend c10d \
     --rdzv_endpoint localhost:0
 "
-# 其他已有变量
-IMAGE_MAX_SIZE=256  # 最大图片边长
-IMAGE_MIN_SIZE=128   # 最小图片边长
+
+IMAGE_MAX_SIZE=96   # 最大图片边长
+IMAGE_MIN_SIZE=48   # 最小图片边长
 
 # arguments that are very likely to be changed
 # according to your own case
-MODEL_ID=llava-interleave-qwen-0.5b                                # model id; pick on by running `python supported_models.py`
-TRAIN_DATA_PATH=./example_data/celeba_image_train.json  # path to the training data json file
-EVAL_DATA_PATH=./example_data/celeba_image_eval.json    # path to the evaluation data json file (optional)
-IMAGE_FOLDER=./example_data/images                      # path to the image root folder; if provided, the image paths in the json should be relative
-VIDEO_FOLDER=./example_data/videos                      # path to the video root folder; if provided, the video paths in the json should be relative
+MODEL_ID=qwen2-vl-2b-instruct                             # model id; pick on by running `python supported_models.py`
+TRAIN_DATA_PATH=./SD_datasets/crisismmd/train.json  # path to the training data json file
+EVAL_DATA_PATH=./SD_datasets/crisismmd/dev.json    # path to the evaluation data json file (optional)
+IMAGE_FOLDER=./SD_datasets/crisismmd                      # path to the image root folder; if provided, the image paths in the json should be relative
+VIDEO_FOLDER=./SD_datasets/crisismmd                      # path to the video root folder; if provided, the video paths in the json should be relative
 NUM_FRAMES=1                                            # how many frames are sampled from each video
 
 TRAIN_VISION_ENCODER=False                              # whether train the vision encoder
@@ -24,10 +24,10 @@ TRAIN_VISION_PROJECTOR=False                            # whether train the visi
 
 USE_LORA=True                                           # whether use lora for llm
 Q_LORA=False                                            # whether use q-lora for llm; only effective when `USE_LORA` is True
-LORA_R=2                                                # the lora rank (both llm and vision encoder)
-LORA_ALPHA=2                                            # the lora alpha (both llm and vision encoder)
+LORA_R=1                                                # the lora rank (both llm and vision encoder)
+LORA_ALPHA=1                                            # the lora alpha (both llm and vision encoder)
 
-RUN_ID=${MODEL_ID}_lora-${USE_LORA}_qlora-${Q_LORA}     # a custom run id that determines the checkpoint folder and wandb run name
+RUN_ID=cri_${MODEL_ID}_lora-${USE_LORA}_qlora-${Q_LORA}     # a custom run id that determines the checkpoint folder and wandb run name
 
 DS_STAGE=zero3                                          # deepspeed stage; < zero2 | zero3 >
 PER_DEVICE_BATCH_SIZE=1                                 # batch size per GPU
@@ -35,7 +35,7 @@ GRAD_ACCUM=1                                            # gradient accumulation 
 NUM_EPOCHS=5                                            # number of training epochs
 
 LR=2e-5                                                 # learning rate
-MODEL_MAX_LEN=256                                       # maximum input length of the model
+MODEL_MAX_LEN=512                                      # maximum input length of the model
 
 
 torchrun $DISTRIBUTED_ARGS train.py \
@@ -62,10 +62,10 @@ torchrun $DISTRIBUTED_ARGS train.py \
     --warmup_ratio 0.03 \
     --lr_scheduler_type "cosine" \
     --logging_steps 1 \
-    --tf32 True \
+    --tf32 False \
     --model_max_length $MODEL_MAX_LEN \
     --gradient_checkpointing True \
-    --dataloader_num_workers 4 \
+    --dataloader_num_workers 1 \
     --train_vision_encoder $TRAIN_VISION_ENCODER \
     --use_vision_lora $USE_VISION_LORA \
     --train_vision_projector $TRAIN_VISION_PROJECTOR \

@@ -6,12 +6,12 @@ DISTRIBUTED_ARGS="
     --rdzv_endpoint localhost:0
 "
 
-IMAGE_MAX_SIZE=96   # 最大图片边长
-IMAGE_MIN_SIZE=48   # 最小图片边长
+IMAGE_MAX_SIZE=448   # 最大图片边长
+IMAGE_MIN_SIZE=224   # 最小图片边长
 
 # arguments that are very likely to be changed
 # according to your own case
-MODEL_ID=qwen2-vl-2b-instruct                                # model id; pick on by running `python supported_models.py`
+MODEL_ID=llava-interleave-qwen-0.5b                               # model id; pick on by running `python supported_models.py`
 TRAIN_DATA_PATH=./SD_datasets/crisismmd/train.json  # path to the training data json file
 EVAL_DATA_PATH=./SD_datasets/crisismmd/dev.json    # path to the evaluation data json file (optional)
 IMAGE_FOLDER=./SD_datasets/crisismmd                      # path to the image root folder; if provided, the image paths in the json should be relative
