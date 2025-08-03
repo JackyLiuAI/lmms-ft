@@ -4,29 +4,20 @@ import torch
 from typing import Dict, List
 from tqdm import tqdm
 import gc
-from transformers import Qwen2VLForConditionalGeneration, AutoProcessor
-from qwen_vl_utils import process_vision_info
+from transformers import AutoProcessor, LlavaForConditionalGeneration
+from PIL import Image
 import ast
 
-# 设置GPU
-os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
-
-class QWen2VLInfer:
+class LLaVAInfer:
     '''
-    使用QWen2VL模型进行支持多组图文示例的多卡推理模型
+    使用LLaVA模型进行支持多组图文示例的多卡推理模型
         message: 参考示例构造
-        min_pixels (int, optional)
-        max_pixels (int, optional)
         max_new_tokens (int, optional)
     '''
     def __init__(self,
                  message: list[dict] = [{}],
-                 min_pixels=256*28*28,
-                 max_pixels=512*28*28,
-                 max_new_tokens=128,
+                 max_new_tokens=1024,
                  ):
-        self.min_pixels = min_pixels
-        self.max_pixels = max_pixels
         self.output_text = ''
         self.max_new_tokens = max_new_tokens
         self.message = message
@@ -40,60 +31,68 @@ class QWen2VLInfer:
                 setattr(self, key, value)
 
     @torch.inference_mode()
-    def initialize(self, model_id="Qwen/Qwen2-VL-2B-Instruct", model_path=None):
+    def initialize(self, model_id="llava-hf/llava-1.5-7b-hf", model_path=None):
         '''
         用于加载模型权重，需要在初始化后运行
         '''
         # 如果没有提供model_path，使用默认路径
         if model_path is None:
-            model_path = "/DATA/home/ljq/Projects/lmms-ft/checkpoints/cri_qwen2-vl-2b-instruct_lora-True_qlora-False"
+            model_path = "/DATA/home/ljq/Projects/lmms-ft/checkpoints/cri_llava-1.5-7b_lora-True_qlora-False"
         
-        self.model = Qwen2VLForConditionalGeneration.from_pretrained(
+        self.model = LlavaForConditionalGeneration.from_pretrained(
             model_path,
-            device_map="auto",
-            torch_dtype=torch.bfloat16,
-        )
+            torch_dtype=torch.float16,
+            low_cpu_mem_usage=True,
+        ).to(0)
 
-        self.processor = AutoProcessor.from_pretrained(
-            model_id,
-            min_pixels=self.min_pixels,
-            max_pixels=self.max_pixels,
-        )
+        self.processor = AutoProcessor.from_pretrained(model_id)
 
     @torch.inference_mode()
     def infer(self):
         '''
         运行initialize之后进行推理，如变更参数需要调用update方法
         '''
-        messages = self.message
+        # message现在应该是construct_message返回的格式
+        if not self.message or "conversation" not in self.message or "image_path" not in self.message:
+            return "Error: Invalid message format"
         
-        # Preparation for inference
-        text = self.processor.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True
-        )
-        image_inputs, video_inputs = process_vision_info(messages)
-        inputs = self.processor(
-            text=[text],
-            images=image_inputs,
-            videos=video_inputs,
-            padding=True,
-            return_tensors="pt",
-        )
-        inputs = inputs.to(self.model.device)
+        conversation = self.message["conversation"]
+        image_path = self.message["image_path"]
         
-        # Inference: Generation of the output
-        generated_ids = self.model.generate(**inputs, max_new_tokens=self.max_new_tokens)
-        generated_ids_trimmed = [
-            out_ids[len(in_ids):] for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
-        ]
-        self.output_text = self.processor.batch_decode(
-            generated_ids_trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
-        )[0]
+        # 加载图像
+        try:
+            raw_image = Image.open(image_path).convert('RGB')
+        except Exception as e:
+            print(f"Error loading image {image_path}: {str(e)}")
+            return "Error: Failed to load image"
+        
+        # 应用chat template
+        prompt = self.processor.apply_chat_template(conversation, add_generation_prompt=True)
+        
+        # 处理输入
+        inputs = self.processor(images=raw_image, text=prompt, return_tensors='pt').to(0, torch.float16)
+        
+        # 生成输出
+        output = self.model.generate(**inputs, max_new_tokens=self.max_new_tokens, do_sample=False)
+        
+        # 解码输出
+        raw_response = self.processor.decode(output[0][2:], skip_special_tokens=True)
+        
+        # 处理LLaVA的输出格式：以ASSISTANT:切分，保留后者并去掉前后空格
+        if "ASSISTANT:" in raw_response:
+            # 以ASSISTANT:切分，取后面的部分
+            assistant_response = raw_response.split("ASSISTANT:", 1)[1]
+            # 去掉前后空格
+            self.output_text = assistant_response.strip()
+        else:
+            # 如果没有ASSISTANT:标记，直接使用原始响应
+            self.output_text = raw_response.strip()
+        
         return self.output_text
 
 
 class CrisisMMDSDTester:
-    def __init__(self, test_json_path: str, test_txt_path: str, output_path: str = "qwen2vl_sd_test_results.json"):
+    def __init__(self, test_json_path: str, test_txt_path: str, output_path: str = "llava7b_sd_test_results.json"):
         self.test_json_path = test_json_path
         self.test_txt_path = test_txt_path
         self.output_path = output_path
@@ -136,7 +135,7 @@ class CrisisMMDSDTester:
                         continue
         return sd_labels
     
-    def construct_message(self, item: Dict, image_base_path: str = "/data/ljq/lmms-finetune/SD_datasets/crisismmd/"):
+    def construct_message(self, item: Dict, image_base_path: str = "/DATA/home/ljq/Projects/lmms-ft/SD_datasets/crisismmd/"):
         """构造模型输入消息"""
         image_path = os.path.join(image_base_path, item["image"])
         
@@ -147,15 +146,32 @@ class CrisisMMDSDTester:
         # 提取human的问题文本
         human_text = item["conversations"][0]["value"]
         
-        return [
-            {
-                "role": "user",
-                "content": [
-                    {"type": "image", "image": image_path},
-                    {"type": "text", "text": human_text}
-                ]
-            }
-        ]
+        # 解析文本，找到<image>的位置并拆分
+        parts = human_text.split('<image>')
+        
+        # 构造content列表
+        content = []
+        
+        # 添加第一部分文本（如果存在）
+        if parts[0].strip():
+            content.append({"type": "text", "text": parts[0].strip()})
+        
+        # 添加图像
+        content.append({"type": "image"})
+        
+        # 添加图像后的文本（如果存在）
+        if len(parts) > 1 and parts[1].strip():
+            content.append({"type": "text", "text": parts[1].strip()})
+        
+        return {
+            "conversation": [
+                {
+                    "role": "user",
+                    "content": content
+                }
+            ],
+            "image_path": image_path
+        }
     
     def extract_category(self, response: str) -> int:
         """从模型响应中提取类别"""
@@ -237,13 +253,17 @@ class CrisisMMDSDTester:
             "weighted_f1": weighted_f1
         }
     
-    def test_and_analyze_by_sd(self, model_id: str = "Qwen/Qwen2-VL-2B-Instruct", model_path: str = None):
+    def test_and_analyze_by_sd(self, model_id: str = "llava-hf/llava-1.5-7b-hf", model_path: str = None, image_base_path: str = None):
         """测试整个数据集一次，然后按SD属性分析结果"""
-        print(f"\nTesting Qwen2-VL model: {model_id}")
+        print(f"\nTesting LLaVA model: {model_id}")
+        
+        # 设置默认的image_base_path
+        if image_base_path is None:
+            image_base_path = "/DATA/home/ljq/Projects/lmms-ft/SD_datasets/crisismmd/"
         
         try:
             # 初始化模型
-            model_infer = QWen2VLInfer()
+            model_infer = LLaVAInfer()
             model_infer.initialize(model_id=model_id, model_path=model_path)
             print(f"Model loaded successfully.")
             
@@ -260,8 +280,8 @@ class CrisisMMDSDTester:
             all_results = []
             
             for i, item in enumerate(tqdm(valid_samples, desc="Testing all samples")):
-                # 构造消息
-                message = self.construct_message(item)
+                # 构造消息 - 传递image_base_path参数
+                message = self.construct_message(item, image_base_path)
                 if message is None:
                     continue
                     
@@ -353,7 +373,7 @@ class CrisisMMDSDTester:
             # 保存结果
             result_data = {
                 "model_id": model_id,
-                "model_family": "qwen2-vl",
+                "model_family": "llava",
                 "results_by_category": results
             }
             
@@ -390,22 +410,24 @@ class CrisisMMDSDTester:
 
 def main():
     # 配置路径
-    test_json_path = "/data/ljq/lmms-finetune/SD_datasets/crisismmd/test.json"
-    test_txt_path = "/data/ljq/lmms-finetune/SD_datasets/crisismmd/test.txt"
-    output_path = "/data/ljq/lmms-finetune/qwen2vl_sd_test_results.json"
+    test_json_path = "/DATA/home/ljq/Projects/lmms-ft/SD_datasets/crisismmd/test.json"
+    test_txt_path = "/DATA/home/ljq/Projects/lmms-ft/SD_datasets/crisismmd/test.txt"
+    output_path = "/DATA/home/ljq/Projects/lmms-ft/llava7b_sd_test_results.json"
+    image_base_path = "/DATA/home/ljq/Projects/lmms-ft/SD_datasets/crisismmd/"
     
-    # 让用户输入模型路径
-    model_path = "Qwen/Qwen2-VL-2B-Instruct"
-    if not model_path:
-        model_path = None  # 使用默认路径
+    # 设置模型路径
+    model_id = "llava-hf/llava-1.5-7b-hf"
+    # model_path = "llava-hf/llava-1.5-7b-hf"
+    model_path = "/DATA/home/ljq/Projects/lmms-ft/checkpoints/cri_llava-1.5-7b_lora-True_qlora-False"
     
     # 创建测试器
     tester = CrisisMMDSDTester(test_json_path, test_txt_path, output_path)
     
     # 测试整个数据集并按SD属性分析
     tester.test_and_analyze_by_sd(
-        model_id=model_path,
-        model_path=model_path
+        model_id=model_id,
+        model_path=model_path,
+        image_base_path=image_base_path
     )
     
     # 保存结果

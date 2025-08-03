@@ -27,8 +27,8 @@ conversation = [
 ]
 prompt = processor.apply_chat_template(conversation, add_generation_prompt=True)
 
-image_file = "http://images.cocodataset.org/val2017/000000039769.jpg"
-raw_image = Image.open(requests.get(image_file, stream=True).raw)
+image_file = "/DATA/home/ljq/Projects/lmms-ft/SD_datasets/crisismmd/data_image/california_wildfires/10_10_2017/917791044158185473_0.jpg"
+raw_image = Image.open(image_file)
 inputs = processor(images=raw_image, text=prompt, return_tensors='pt').to(0, torch.float16)
 
 output = model.generate(**inputs, max_new_tokens=200, do_sample=False)
